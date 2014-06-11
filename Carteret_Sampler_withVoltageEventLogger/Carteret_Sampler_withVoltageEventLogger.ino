@@ -55,7 +55,9 @@ long val = 0;
 long temp = 0;
 
 // Set durations here (in seconds):
-int SignalTime = 2;
+
+///D0
+char systemLogFile[12] = "D0.log";
 const long int PumpTime = 10;  //seconds to pump from water source toward probe--during this part of the cycle the drain valve is open
 const long int pumpToProbe=5;  //seconds to fill the sample resivoir --the drain valve is closed
 const long int PurgeTime= 10;   //return water in lines to source
@@ -63,27 +65,63 @@ const long int MeasurementTime = 3; //seconds to wait for scanProbe to sample (c
 const long int lensCleaningTime = 1500; //milliseconds
 const long int drainTime=3;  //seconds to leave the drain open after purging to allow maximum water draining (especially when manta is connected)
 const long int mantaTime=1; //can this be zero?
+////D1
+ //  char systemLogFile[12] = "test.log";
+//const long int PumpTime = 10;  //seconds to pump from water source toward probe--during this part of the cycle the drain valve is open
+//const long int pumpToProbe=5;  //seconds to fill the sample resivoir --the drain valve is closed
+//const long int PurgeTime= 10;   //return water in lines to source
+//const long int MeasurementTime = 3; //seconds to wait for scanProbe to sample (counted after pumpToProbe is completed)
+//const long int lensCleaningTime = 1500; //milliseconds
+//const long int drainTime=3;  //seconds to leave the drain open after purging to allow maximum water draining (especially when manta is connected)
+//const long int mantaTime=1; //can this be zero?
+////D2
+//   char systemLogFile[12] = "test.log";
+//const long int PumpTime = 10;  //seconds to pump from water source toward probe--during this part of the cycle the drain valve is open
+//const long int pumpToProbe=5;  //seconds to fill the sample resivoir --the drain valve is closed
+//const long int PurgeTime= 10;   //return water in lines to source
+//const long int MeasurementTime = 3; //seconds to wait for scanProbe to sample (counted after pumpToProbe is completed)
+//const long int lensCleaningTime = 1500; //milliseconds
+//const long int drainTime=3;  //seconds to leave the drain open after purging to allow maximum water draining (especially when manta is connected)
+//const long int mantaTime=1; //can this be zero?
+////D3
+//   char systemLogFile[12] = "test.log";
+//const long int PumpTime = 10;  //seconds to pump from water source toward probe--during this part of the cycle the drain valve is open
+//const long int pumpToProbe=5;  //seconds to fill the sample resivoir --the drain valve is closed
+//const long int PurgeTime= 10;   //return water in lines to source
+//const long int MeasurementTime = 3; //seconds to wait for scanProbe to sample (counted after pumpToProbe is completed)
+//const long int lensCleaningTime = 1500; //milliseconds
+//const long int drainTime=3;  //seconds to leave the drain open after purging to allow maximum water draining (especially when manta is connected)
+//const long int mantaTime=1; //can this be zero?
+
+
+
+
+
+int SignalTime = 2;
 long int startTime;
 long int elapsedTime;
+
  //  int runSystem=0;
-   char systemLogFile[12] = "test.log";
+
    int sampleCyclesSinceLastPowerCycle=0;
    int numberOfSamples=0;
+   
 void setup() {
   Serial.begin(9600);
   analogReference(INTERNAL); 
+  pinMode(batteryVoltage,INPUT);
+  pinMode(valve2, OUTPUT);
 
   pinMode(probe, INPUT);
-  pinMode(batteryVoltage,INPUT);
   pinMode(pump, OUTPUT);
   pinMode(purge, OUTPUT);
   pinMode(drainUnderScan, OUTPUT);
-  pinMode(valve2, OUTPUT);
   pinMode(wwPump, OUTPUT);
   pinMode(pumpValve, OUTPUT);
   pinMode(test, INPUT_PULLUP);
   pinMode(floatSwitchExcitation,OUTPUT);
   digitalWrite(floatSwitchExcitation,LOW);
+  
   pinMode(floatSwitchSignal,INPUT);
   
    pinMode(chipSelect,OUTPUT);
@@ -131,13 +169,14 @@ while((ProbeSignal == HIGH)|| (TestSignal == LOW)){// This is a while loop that 
     if((count == SignalTime*10)){
             if(get_floatSwitch()==1){
              int runSystem=0;   //there is not water in the ditch
+             Serial.println("don't sample, just log");
               writeSystemLogFile(runSystem);
             }
             
             if(get_floatSwitch()==0){
-              sampleCycle();
               int runSystem=1;
               writeSystemLogFile(runSystem);
+              sampleCycle();
             }
     }//if count=signalTime*10
   }//while probeSignal==high or test==low
@@ -159,14 +198,14 @@ void writeSystemLogFile(int runSystem){
 //PREPARED DATA FOR FILE HEADER ABBREVIATIONS OF VARIABLES AND UNITS ARE HERE 
 //EVERYTHING IS TAB DELIMITED, SO EXCEL SHOULD READ IT IN WELL
 //MUST BE CHANGED IF THE OUTPUTS ARE CHANGED
-    char* registerNames[]={"YYYY","MM","DD","HH","mm",
-                          "runPump","sample#","voltage","raw","temperature"};
+    char* registerNames[]={"YYYY","MM","DD","HH","mm","s",
+                          "runPump","sample#","temperature"};
                           
           
 	if (!SD.exists(systemLogFile)){ 					//IF THE LOG FILE DOES NOT EXIST
 		File dataFile=SD.open(systemLogFile,FILE_WRITE);//CREATE THE LOG FILE
 
-                for (int j=0;j<7;j++){							//FOR EACH LOG VARIABLE
+                for (int j=0;j<9;j++){							//FOR EACH LOG VARIABLE
                       dataFile.print(registerNames[j]);			//PRINT A SHORT VARIABLE NAME
                       dataFile.print("\t");      				//ADD A TAB
                       }//END for (int j=0;j<30;j++)
@@ -197,10 +236,6 @@ void writeSystemLogFile(int runSystem){
 			dataFile.print("\t");					//ADD A TAB
            
 			dataFile.print(numberOfSamples);  
-                        dataFile.print("\t"); 
-                        dataFile.print(get_vBatt());					//ADD A TAB
-                        dataFile.print("\t"); 
-                        dataFile.print(analogRead(batteryVoltage));  			//ADD A TAB
                         dataFile.print("\t"); 
                         dataFile.print( get_tempRTC());   
 	   		dataFile.print("\n");  		//add final carriage return
@@ -279,14 +314,14 @@ void sampleCycle(){
           digitalWrite(drainUnderScan, HIGH); //Open valve
           digitalWrite(pump, HIGH);   //Turn pump on
           Serial.println("Pumping");
-              while (millis()-startTime<PumpTime*1000){ //fill time while pumping
+              while ((millis()-startTime)<(PumpTime*1000)){ //fill time while pumping
                delay(100); 
               }
  //pump to probe
           digitalWrite(drainUnderScan, LOW);  //Close the valve so water accumulates
           Serial.println("Pump To Probe");
           long int timer=millis();
-          while (millis()-timer<pumpToProbe*1000){
+          while ((millis()-timer)<(pumpToProbe*1000)){
              delay(100);
             }
       
@@ -294,7 +329,7 @@ void sampleCycle(){
           
 //wait for scan to finish measurement          
           timer=millis();
-              while (millis()-timer<MeasurementTime*1000){
+              while ((millis()-timer)<(MeasurementTime*1000)){
                 delay(100);
                 }
 
@@ -302,7 +337,7 @@ void sampleCycle(){
       digitalWrite(drainUnderScan, HIGH); //Open valve 1
       Serial.println("Open Drain");
             timer=millis();
-            while (millis()-timer<drainTime*1000){
+            while ((millis()-timer)<(drainTime*1000)){
                delay(100);
                }      //Delay 3 seconds for draining
                
@@ -312,7 +347,7 @@ void sampleCycle(){
        digitalWrite(wwPump, HIGH); //Open valve 3 turn on pump
         Serial.println("Cleaning lens");
          timer=millis();
-          while (millis()-timer<lensCleaningTime){
+          while ((millis()-timer)<(lensCleaningTime)){
               delay(100);
               }   
       
@@ -324,7 +359,7 @@ void sampleCycle(){
 
       Serial.println("Delay for Manta");
       timer=millis();
-      while (millis()-timer<mantaTime*1000){
+      while ((millis()-timer)<(mantaTime*1000)){
           delay(100);
         } 
       
@@ -333,7 +368,7 @@ void sampleCycle(){
       Serial.println("Purging");
       
       timer=millis();
-      while (millis()-timer<PurgeTime*1000){
+      while ((millis()-timer)<(PurgeTime*1000)){
            delay(100);
         } 
       
